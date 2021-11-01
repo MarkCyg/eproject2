@@ -1,0 +1,3 @@
+DROP DATABASE IF EXISTS h_cubed;
+
+CREATE DATABASE h_cubed;
