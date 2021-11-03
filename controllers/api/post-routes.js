@@ -1,10 +1,10 @@
 const router = require("express").Router();
 const sequelize = require("../../config/connection");
 const { Post, User, Comment, Tag, Category, PostTag } = require("../../models");
+const withAuth = require('../../utils/auth');
 
 
-
-router.get('', (req, res) => {
+router.get('/', (req, res) => {
    Post.findAll({
        attributes: [
            'id',
@@ -85,17 +85,15 @@ router.get("/:id", (req, res) => {
       console.log(err);
       res.status(500).json(err);
     })
-})
+    })
 })
 
-
-router.post('/', (req, res) => {
+router.post('/', withAuth, (req, res) => {
     Post.create({
         post_text: req.body.post_text,
         category_id: req.body.category_id,
         tag_id: req.body.tag_id,
-        // EDIT THIS TO USE AUTHENTICATION
-        user_id: 1
+        user_id: req.session.user_id
     })
     .then(dbPostData => res.json(dbPostData))
     .catch(err => {
@@ -104,7 +102,7 @@ router.post('/', (req, res) => {
     })
 })
 
-router.put('/:id', (req, res) => {
+router.put('/:id', withAuth, (req, res) => {
     Post.update(
         {
             post_text: req.body.post_text
@@ -127,23 +125,34 @@ router.put('/:id', (req, res) => {
     });
 });
 
-router.delete('/:id', (req, res) => {
-    Post.destroy({
+router.delete('/:id', withAuth, (req, res) => {
+    Post.findOne({
         where: {
-          id: req.params.id
+            id: req.params.id
         }
-      })
-        .then(dbPostData => {
-          if (!dbPostData) {
+    })
+    .then(dbPostData => {
+        if (!dbPostData) {
             res.status(404).json({ message: 'No post found with this id' });
             return;
-          }
-          res.json(dbPostData);
+        }
+        if (dbPostData.user_id !== req.session.user_id) {
+            res.status(500).json({ message: 'You must be the creator of a post to delete it!' });
+            return;
+        }
+        res.json(dbPostData);
+    })
+    .then(dbPostData => {
+        Post.destroy({
+            where: {
+              id: req.params.id
+            }
         })
-        .catch(err => {
-          console.log(err);
-          res.status(500).json(err);
-        });
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(500).json(err);
+    });
 });
 
 module.exports = router;
